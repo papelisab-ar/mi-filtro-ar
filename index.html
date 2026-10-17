@@ -1,55 +1,288 @@
+
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Carga A-Frame 1.3.0 -->
-    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
-    <!-- Carga MindAR con soporte de tracking de manos -->
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-hand-aframe.prod.js"></script>
-  </head>
-  <body>
-    <a-scene 
-      mindar-hand="handType: right;" 
-      color-space="sRGB" 
-      renderer="colorManagement: true, physicallyCorrectLights" 
-      vr-mode-ui="enabled: false" 
-      device-orientation-permission-ui="enabled: false">
-      
-      <a-assets>
-        <video 
-          id="videoAr" 
-          src="mi_video.mp4" 
-          preload="auto" 
-          loop="true" 
-          crossorigin="anonymous" 
-          playsinline 
-          webkit-playsinline>
-        </video>
-      </a-assets>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1, viewport-fit=cover">
 
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+  <title>Realidad aumentada - Mano</title>
 
-      <!-- Ancla sobre la palma de la mano -->
-      <a-entity mindar-hand-target="anchorIndex: 0">
-        <a-video src="#videoAr" width="1" height="0.56" position="0 0 0" rotation="0 0 0"></a-video>
-      </a-entity>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
 
-    </a-scene>
+    body {
+      margin: 0;
+      background: #111;
+      color: white;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
 
-    <script>
-      const sceneEl = document.querySelector('a-scene');
-      sceneEl.addEventListener("arReady", () => {
-        const targetEl = document.querySelector('[mindar-hand-target]');
-        const videoEl = document.querySelector('#videoAr');
+    #contenedor {
+      position: relative;
+      width: 100vw;
+      height: 100dvh;
+      overflow: hidden;
+      background: #111;
+    }
 
-        targetEl.addEventListener("targetFound", () => {
-          videoEl.play();
+    #camara {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    #canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      transform: scaleX(-1);
+    }
+
+    #mensaje {
+      position: absolute;
+      top: 20px;
+      left: 12px;
+      right: 12px;
+      padding: 12px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.7);
+      text-align: center;
+      z-index: 5;
+    }
+
+    #iniciar {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 16px 24px;
+      border: 0;
+      border-radius: 12px;
+      background: #1976d2;
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+      z-index: 10;
+    }
+
+    #videoAR {
+      position: absolute;
+      width: min(75vw, 420px);
+      max-height: 45vh;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      object-fit: contain;
+      display: none;
+      z-index: 4;
+      border-radius: 12px;
+      background: #000;
+    }
+  </style>
+
+  <!-- MediaPipe Hands -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+</head>
+
+<body>
+  <div id="contenedor">
+    <video id="camara" autoplay playsinline muted></video>
+    <canvas id="canvas"></canvas>
+
+    <div id="mensaje">
+      Pulsa iniciar y muestra la palma de tu mano.
+    </div>
+
+    <button id="iniciar">Iniciar cámara</button>
+
+    <video id="videoAR"
+           src="./mi_video.mp4"
+           playsinline
+           webkit-playsinline
+           muted
+           loop
+           controls>
+    </video>
+  </div>
+
+  <script>
+    const camara = document.getElementById("camara");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const mensaje = document.getElementById("mensaje");
+    const boton = document.getElementById("iniciar");
+    const videoAR = document.getElementById("videoAR");
+
+    let hands;
+    let camaraActiva = false;
+    let palmaDetectada = false;
+
+    function ajustarCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    window.addEventListener("resize", ajustarCanvas);
+    ajustarCanvas();
+
+    function esDedoExtendido(puntos, punta, medio) {
+      return puntos[punta].y < puntos[medio].y;
+    }
+
+    function detectarPalma(puntos) {
+      const indice = esDedoExtendido(puntos, 8, 6);
+      const medio = esDedoExtendido(puntos, 12, 10);
+      const anular = esDedoExtendido(puntos, 16, 14);
+      const menique = esDedoExtendido(puntos, 20, 18);
+
+      // Mano abierta: cuatro dedos extendidos.
+      return indice && medio && anular && menique;
+    }
+
+    function mostrarVideo() {
+      if (!palmaDetectada) {
+        palmaDetectada = true;
+        videoAR.style.display = "block";
+        mensaje.textContent = "¡Palma detectada! Reproduciendo video.";
+        videoAR.play().catch(() => {
+          mensaje.textContent =
+            "Palma detectada. Toca el video para reproducirlo.";
+        });
+      }
+    }
+
+    function ocultarVideo() {
+      if (palmaDetectada) {
+        palmaDetectada = false;
+        videoAR.pause();
+        videoAR.style.display = "none";
+        mensaje.textContent = "Muestra la palma de tu mano.";
+      }
+    }
+
+    async function procesarResultados(resultados) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const manos = resultados.multiHandLandmarks;
+
+      if (manos && manos.length > 0) {
+        const puntos = manos[0];
+
+        // Dibuja los puntos de referencia de la mano.
+        for (const punto of puntos) {
+          ctx.beginPath();
+          ctx.arc(
+            punto.x * canvas.width,
+            punto.y * canvas.height,
+            4, 0, 2 * Math.PI
+          );
+          ctx.fillStyle = "#00ff88";
+          ctx.fill();
+        }
+
+        if (detectarPalma(puntos)) {
+          mostrarVideo();
+        } else {
+          ocultarVideo();
+          mensaje.textContent = "Mano detectada. Abre la palma.";
+        }
+      } else {
+        ocultarVideo();
+        mensaje.textContent = "Muestra la palma de tu mano.";
+      }
+    }
+
+    async function iniciar() {
+      boton.disabled = true;
+      mensaje.textContent = "Iniciando cámara...";
+
+      try {
+        if (!navigator.mediaDevices ||
+            !navigator.mediaDevices.getUserMedia) {
+          throw new Error(
+            "Abre esta página mediante HTTPS en un navegador compatible."
+          );
+        }
+
+        // Solicita permiso para usar la cámara.
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            facingMode: "environment",
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
         });
 
-        targetEl.addEventListener("targetLost", () => {
-          videoEl.pause();
+        camara.srcObject = stream;
+        await camara.play();
+
+        if (typeof Hands === "undefined") {
+          throw new Error(
+            "No se pudo cargar MediaPipe Hands. Revisa tu conexión."
+          );
+        }
+
+        hands = new Hands({
+          locateFile: (archivo) =>
+            "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + archivo
         });
-      });
-    </script>
-  </body>
+
+        hands.setOptions({
+          maxNumHands: 1,
+          modelComplexity: 1,
+          minDetectionConfidence: 0.65,
+          minTrackingConfidence: 0.55
+        });
+
+        hands.onResults(procesarResultados);
+
+        const procesarFrame = async () => {
+          if (!camaraActiva) return;
+
+          try {
+            if (camara.readyState >= 2) {
+              await hands.send({ image: camara });
+            }
+          } catch (error) {
+            console.error("Error procesando la mano:", error);
+          }
+
+          if (camaraActiva) {
+            requestAnimationFrame(procesarFrame);
+          }
+        };
+
+        camaraActiva = true;
+        boton.style.display = "none";
+        mensaje.textContent = "Muestra tu palma abierta a la cámara.";
+        procesarFrame();
+
+      } catch (error) {
+        console.error(error);
+        mensaje.textContent = "Error: " + error.message;
+        boton.disabled = false;
+        boton.textContent = "Intentar de nuevo";
+      }
+    }
+
+    boton.addEventListener("click", iniciar);
+
+    window.addEventListener("pagehide", () => {
+      camaraActiva = false;
+
+      if (camara.srcObject) {
+        camara.srcObject.getTracks().forEach(track => track.stop());
+      }
+    });
+  </script>
+</body>
 </html>
