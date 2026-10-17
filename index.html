@@ -2,10 +2,10 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- A-Frame 1.4.2 (Versión estable compatible con MindAR) -->
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <!-- Módulo de Hand Tracking de MindAR -->
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-hand-aframe.prod.js"></script>
+    <!-- Carga A-Frame 1.3.0 -->
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <!-- Carga MindAR con soporte de tracking de manos -->
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-hand-aframe.prod.js"></script>
   </head>
   <body>
     <a-scene 
@@ -20,7 +20,7 @@
           id="videoAr" 
           src="mi_video.mp4" 
           preload="auto" 
-          loop 
+          loop="true" 
           crossorigin="anonymous" 
           playsinline 
           webkit-playsinline>
@@ -29,6 +29,7 @@
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
+      <!-- Ancla sobre la palma de la mano -->
       <a-entity mindar-hand-target="anchorIndex: 0">
         <a-video src="#videoAr" width="1" height="0.56" position="0 0 0" rotation="0 0 0"></a-video>
       </a-entity>
@@ -42,7 +43,7 @@
         const videoEl = document.querySelector('#videoAr');
 
         targetEl.addEventListener("targetFound", () => {
-          videoEl.play().catch(e => console.log("Autoplay bloqueado:", e));
+          videoEl.play();
         });
 
         targetEl.addEventListener("targetLost", () => {
