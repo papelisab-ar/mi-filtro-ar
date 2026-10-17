@@ -2,23 +2,47 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Cargamos A-Frame -->
+    <!-- Carga A-Frame -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <!-- Cargamos el motor de MindAR -->
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <!-- Carga el motor de MindAR especializado en Hand Tracking -->
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-hand-aframe.prod.js"></script>
   </head>
   <body>
-    <!-- Escena configurada con una tarjeta de prueba de MindAR -->
-    <a-scene mindar-image="imageTargetSrc: https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/examples/image-tracking/assets/card-example/card.mind;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+    <a-scene mindar-hand="handType: right;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
       
+      <!-- Carga de recursos (Assets) -->
+      <a-assets>
+        <!-- Reemplaza mi_video.mp4 por el nombre exacto de tu video subido a GitHub -->
+        <video id="videoAr" src="mi_video.mp4" preload="auto" loop="true" crossorigin="anonymous" webkit-playsinline playsinline></video>
+      </a-assets>
+
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- Lo que aparecerá al escanear la tarjeta objetivo -->
-      <a-entity mindar-image-target="targetIndex: 0">
-        <!-- Un cubo azul sobre la imagen escaneada -->
-        <a-box position="0 0 0" material="color: #4CC3D0;" depth="0.2" height="0.5" width="0.5"></a-box>
+      <!-- Ancla 0: Se posiciona directamente en la palma de la mano -->
+      <a-entity mindar-hand-target="anchorIndex: 0">
+        <!-- Plano donde se proyecta el video -->
+        <a-video src="#videoAr" width="1" height="0.56" position="0 0 0" rotation="0 0 0"></a-video>
       </a-entity>
 
     </a-scene>
+
+    <!-- Script para iniciar la reproducción automática al detectar la mano -->
+    <script>
+      const sceneEl = document.querySelector('a-scene');
+      sceneEl.addEventListener("arReady", () => {
+        const targetEl = document.querySelector('[mindar-hand-target]');
+        const videoEl = document.querySelector('#videoAr');
+
+        // Cuando la cámara detecta la mano, inicia el video
+        targetEl.addEventListener("targetFound", () => {
+          videoEl.play();
+        });
+
+        // Cuando se pierde de vista la mano, pausa el video
+        targetEl.addEventListener("targetLost", () => {
+          videoEl.pause();
+        });
+      });
+    </script>
   </body>
 </html>
